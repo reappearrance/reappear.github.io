@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>피하기 게임</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid black;
+            background-color: #fff;
+        }
+        #message {
+            position: absolute;
+            top: 10px;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <div id="message">화살표 키로 점들을 피해 보세요!</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // 플레이어 설정
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 20,
+            speed: 5,
+            dx: 0,
+            dy: 0
+        };
+
+        // 점(장애물) 설정
+        let dots = [];
+        let dotSpeed = 2;
+        let dotCount = 5;
+
+        // 시간 측정
+        let startTime;
+        let elapsedTime = 0;
+
+        // 점 생성 함수
+        function createDots(count) {
+            for (let i = 0; i < count; i++) {
+                const dot = {
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: 15,
+                    speedX: (Math.random() - 0.5) * dotSpeed,
+                    speedY: (Math.random() - 0.5) * dotSpeed
+                };
+                dots.push(dot);
+            }
+        }
+
+        // 플레이어 그리기 함수
+        function drawPlayer() {
+            ctx.fillStyle = "green";
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+        }
+
+        // 점(장애물) 그리기 함수
+        function drawDots() {
+            ctx.fillStyle = "red";
+            dots.forEach(dot => {
+                ctx.beginPath();
+                ctx.arc(dot.x, dot.y, dot.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // 점 움직이기 함수
+        function moveDots() {
+            dots.forEach(dot => {
+                dot.x += dot.speedX;
+                dot.y += dot.speedY;
+
+                // 벽에 닿으면 방향 바꾸기
+                if (dot.x <= 0 || dot.x >= canvas.width) {
+                    dot.speedX *= -1;
+                }
+                if (dot.y <= 0 || dot.y >= canvas.height) {
+                    dot.speedY *= -1;
+                }
+            });
+        }
+
+        // 플레이어 움직이기 함수
+        function movePlayer() {
+            player.x += player.dx;
+            player.y += player.dy;
+
+            // 경계선 제한
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.size > canvas.width) player.x = canvas.width - player.size;
+            if (player.y < 0) player.y = 0;
+            if (player.y + player.size > canvas.height) player.y = canvas.height - player.size;
+        }
+
+        // 충돌 감지 함수
+        function checkCollision() {
+            for (let dot of dots) {
+                const distX = player.x + player.size / 2 - dot.x;
+                const distY = player.y + player.size / 2 - dot.y;
+                const distance = Math.sqrt(distX * distX + distY * distY);
+
+                if (distance < dot.size + player.size / 2) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 게임 오버
+        function gameOver() {
+            ctx.fillStyle = "black";
+            ctx.font = "36px Arial";
+            ctx.fillText("게임 오버!", canvas.width / 2 - 100, canvas.height / 2 - 20);
+            ctx.fillText(`기록: ${elapsedTime.toFixed(2)}초`, canvas.width / 2 - 120, canvas.height / 2 + 20);
+        }
+
+        // 키 누름 이벤트
+        function keyDown(e) {
+            if (e.key === "ArrowRight") {
+                player.dx = player.speed;
+            } else if (e.key === "ArrowLeft") {
+                player.dx = -player.speed;
+            } else if (e.key === "ArrowUp") {
+                player.dy = -player.speed;
+            } else if (e.key === "ArrowDown") {
+                player.dy = player.speed;
+            }
+        }
+
+        // 키 떼기 이벤트
+        function keyUp(e) {
+            if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                player.dx = 0;
+            }
+            if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                player.dy = 0;
+            }
+        }
+
+        // 게임 루프
+        let gameActive = true;
+        function gameLoop() {
+            if (gameActive) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // 시간 업데이트
+                elapsedTime = (Date.now() - startTime) / 1000;
+
+                // 플레이어와 점 그리기
+                drawPlayer();
+                drawDots();
+
+                // 플레이어와 점 이동
+                movePlayer();
+                moveDots();
+
+                // 충돌 체크
+                if (checkCollision()) {
+                    gameActive = false;
+                    gameOver();
+                }
+
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // 난이도 증가
+        function increaseDifficulty() {
+            if (gameActive) {
+                dotSpeed += 0.5;
+                dotCount += 1;
+                createDots(1); // 1개의 점 추가
+                dots.forEach(dot => {
+                    dot.speedX = (Math.random() - 0.5) * dotSpeed;
+                    dot.speedY = (Math.random() - 0.5) * dotSpeed;
+                });
+                setTimeout(increaseDifficulty, 5000); // 5초마다 난이도 증가
+            }
+        }
+
+        // 키보드 이벤트 리스너
+        window.addEventListener("keydown", keyDown);
+        window.addEventListener("keyup", keyUp);
+
+        // 게임 시작
+        window.onload = () => {
+            startTime = Date.now();
+            createDots(dotCount);
+            gameLoop();
+            setTimeout(increaseDifficulty, 5000);  // 5초 후 난이도 증가 시작
+        };
+
+    </script>
+
+</body>
+</html>
